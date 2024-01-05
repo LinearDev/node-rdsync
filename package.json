@@ -1,8 +1,10 @@
 {
   "name": "rdsync",
   "version": "1.0.0",
-  "description": "",
-  "main": "src/index.js",
+  "description": "RDSync is node.js package to interact with RDSync DB",
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
+  "repository": "https://github.com/LinearDev/node-rdsync",
   "scripts": {
     "dev": "npx nodemon",
     "build": "rimraf ./build && tsc",
@@ -18,6 +20,6 @@
     "typescript": "^5.2.2"
   },
   "dependencies": {
-    "axios": "^1.6.2"
+    "ulid": "^2.3.0"
   }
 }
