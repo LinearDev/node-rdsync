@@ -1,103 +1,77 @@
-import axios from "axios";
-import { Error, Helpers } from "../types/rdsync_types";
+import { RDRequest } from "../types/rdsync_types";
+import { send } from "./tcp";
+import { ulid } from "ulid";
 
-type Get = {
-    db: string,
-    table: string,
-    key: string
-}
+// End of line
+const EOL = "\n"
 
-const methodsFetch = {
-    get: async <T>(helpers: Helpers, path: string, {db, table, key}: Get): Promise<T> => {
-        const _url = helpers.get_url()
-        if (_url == null || !_url.length) {
-            throw new Error("[ ERROR ]: Database URL is null. Pass this parameter");
-        }
+/** Preparing tx according to a tcp transactional pipelining protocol
+ * 
+ * ----------------------------------------
+ * | 0x1 | ...head data go here... | 0x17 |
+ * ----------------------------------------
+ * | 0x2 | ...body data go here... | 0x17 |
+ * ----------------------------------------
+ */
+const prepareQuery = (data: any) => {
+    let bufArr = [];
+    const rid = ulid();
+    //header section start
+    bufArr.push(Buffer.from([0x01]))
 
-        return "" as T;
-    },
-    post: async () => {},
-    put: async () => {},
-    delete: async () => {},
+    // request type
+    bufArr.push(Buffer.from(`req: ${data.req}${EOL}`))
+    // request id
+    bufArr.push(Buffer.from(`rud: ${rid}${EOL}`))
+    // db
+    bufArr.push(Buffer.from(`db: ${data.db}${EOL}`))
+    
+    if (data.table) {
+        bufArr.push(Buffer.from(`table: ${data.table}${EOL}`))
+    }
+    if (data.key) {
+        bufArr.push(Buffer.from(`key: ${data.key}${EOL}`))
+    }
+    if (data.type) {
+        bufArr.push(Buffer.from(`type: ${data.type}${EOL}`))
+    }
+    //header section end
+    bufArr.push(Buffer.from([0x17]))
+    bufArr.push(Buffer.from([0x02]))
+    if (data.value) {
+        bufArr.push(Buffer.from(`${data.value}`))
+    }
+    bufArr.push(Buffer.from([0x17]))
+    // query += "\c\r"
+    return {
+        r: Buffer.concat(bufArr),
+        rid
+    };
 }
 
 const methodsAxios = {
-    get: async <T>(helpers: Helpers, path: string, {db, table, key}: Get): Promise<T> => {
-        let _url = helpers.get_url()
-        if (_url == null || !_url.length) {
-            throw new Error("[ ERROR ]: Database URL is null. Pass this parameter");
-        }
+    get: <T>(path: string, data: any): RDRequest<T> => {
+        data.req = `get_${path}`;
+        const q = prepareQuery(data);
 
-        if (_url[_url.length] != "/") {
-            _url += "/"
-        }
-
-        try {
-            const res = await axios.get(`${_url}${path}?db=${db}&table=${table}&key=${key}`);
-            
-            if (res.data.status || res.data.status == undefined) {
-                return res.data as T;
-            } else {
-                throw new Error(res.data.message);
-            }
-        } catch (e: any) {
-            throw new Error(e);
-        }
+        const res = send<T>(q);
+        return res;
     },
-    post: async (helpers: Helpers, path: string, body: any): Promise<Error> => {
-        let _url = helpers.get_url()
-        if (_url == null || !_url.length) {
-            throw new Error("[ ERROR ]: Database URL is null. Pass this parameter");
-        }
+    post: <T>(path: string, data: any): RDRequest<T> => {
+        data.req = `add_${path}`;
+        let q = prepareQuery(data);
 
-        if (_url[_url.length] != "/") {
-            _url += "/"
-        }
-
-        try {
-            const res = await axios.post(`${_url}${path}`, body);
-            
-            if (res.data.status || res.data.status == undefined) {
-                return res.data;
-            } else {
-                throw new Error(res.data.message);
-            }
-        } catch (e: any) {
-            throw new Error(e);
-        }
+        const res = send<T>(q);
+        return res;
     },
-    put: async () => {},
-    delete: async (helpers: Helpers, path: string, data: any) => {
-        let _url = helpers.get_url()
-        if (_url == null || !_url.length) {
-            throw new Error("[ ERROR ]: Database URL is null. Pass this parameter");
-        }
+    put: () => {},
+    delete: <T>(path: string, data: any): RDRequest<T> => {
+        data.req = `delete_${path}`;
+        let q = prepareQuery(data);
 
-        if (_url[_url.length] != "/") {
-            _url += "/"
-        }
-
-        let query = `db=${data.db}`;
-        if (data.table) {
-            query += `&table=${data.table}`
-        }
-        if (data.key) {
-            query += `&key=${data.key}`
-        }
-
-        try {
-            const res = await axios.delete(`${_url}${path}?${query}`);
-            
-            if (res.data.status || res.data.status == undefined) {
-                return res.data;
-            } else {
-                throw new Error(res.data.message);
-            }
-        } catch (e: any) {
-            throw new Error(e);
-        }
+        const res = send<T>(q);
+        return res;
     },
 }
 
-// export const instance = typeof window === 'undefined' ? metodsAxios : methodsFetch;
 export const instance = methodsAxios;

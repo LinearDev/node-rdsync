@@ -50,7 +50,7 @@ export class RDSyncCreate {
      * @param {string} data db (database name), name (table name)
      * @returns status of creation
      */
-    public async create_table({db, name}: TableInput): Promise<Error> {
+    public async create_table({db, name}: TableInput): Promise<string> {
         const _db = db ? db : this.helpers.get_db_name();
         const _table = name ? name : this.helpers.get_table_name();
 
@@ -63,10 +63,10 @@ export class RDSyncCreate {
         }
         
         try {
-            const value = await instance.post(this.helpers, "table", {
+            const value = await instance.post<string>("table", {
                 db: _db,
                 name: _table,
-            });
+            }).call();
             return value;
         } catch (e: any) {
             throw new Error(e);
@@ -82,7 +82,7 @@ export class RDSyncCreate {
      */
     public create_table_sync(
         {db, name}: TableInput,
-        callback: (data: Error) => void,
+        callback: (data: string) => void,
         error?: (error: Error) => void
     ): void {
         this.create_table({db, name})
